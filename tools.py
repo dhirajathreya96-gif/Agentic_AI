@@ -1,50 +1,101 @@
-import datetime as dt
-from langchain.tools import tool
-
-# This is a Pydantic model for structured output validation (Best Practice)
+import requests
 from pydantic import BaseModel, Field
+from typing import List
 
-# --- Tool 1: Check Availability ---
+GRAPH_URL = "https://graph.microsoft.com/v1.0"
+
+# -------------------------
+# Pydantic Schemas
+# -------------------------
+
 class CheckAvailabilityInput(BaseModel):
-    """Input schema for checking calendar availability."""
-    start_time: str = Field(description="The start time for the check, e.g., '2025-12-01 10:00:00'.")
-    duration_minutes: int = Field(description="The required duration in minutes, e.g., 30 or 60.")
+    date: str = Field(..., description="The date for the meeting, e.g., '2025-12-15'.")
+    time: str = Field(..., description="The start time for the meeting in 24-hour format, e.g., '09:00:00'.")
+    duration_minutes: int = Field(..., description="Duration of the meeting in minutes, e.g., 60.")
 
-@tool(args_schema=CheckAvailabilityInput)
-def check_calendar_availability(start_time: str, duration_minutes: int) -> str:
-    """
-    Checks the user's calendar to see if they are free at the specified time 
-    for the given duration. Returns a human-readable availability report.
-    """
-    # Simulate a busy period
-    busy_start = dt.datetime(2025, 12, 1, 10, 30, 0)
-    busy_end = dt.datetime(2025, 12, 1, 11, 30, 0)
+class ScheduleMeetingInput(BaseModel):
+    date: str = Field(..., description="The date for the meeting, e.g., '2025-12-15'.")
+    time: str = Field(..., description="The start time for the meeting in 24-hour format, e.g., '14:00:00'.")
+    duration_minutes: int = Field(..., description="Duration of the meeting in minutes, e.g., 60.")
+    attendees: List[str] = Field(..., description="List of attendee email addresses.")
+    subject: str = Field(..., description="Meeting subject.")
+    
+
+# -------------------------
+# Tool Functions
+# -------------------------
+
+def check_calendar_availability(data: CheckAvailabilityInput) -> str:
+    # Lazy import → prevents auth from loading at module import time
+    from auth import auth_manager
 
     try:
-        requested_start = dt.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
-        requested_end = requested_start + dt.timedelta(minutes=duration_minutes)
-    except ValueError:
-        return "ERROR: Time format must be YYYY-MM-DD HH:MM:SS. Please ask the user to clarify the date/time."
+        headers = auth_manager.get_auth_header()
 
-    if requested_start < busy_end and requested_end > busy_start:
-        return f"The calendar is **BUSY** from {busy_start.strftime('%H:%M')} to {busy_end.strftime('%H:%M')} on Dec 1st. You are not free at {requested_start.strftime('%H:%M')}."
-    else:
-        return f"The calendar is **FREE** at the requested time: {requested_start.strftime('%Y-%m-%d %H:%M')}, for {duration_minutes} minutes."
+        start_datetime = f"{data.date}T{data.time}"
+        duration_seconds = data.duration_minutes * 60
 
-# --- Tool 2: Schedule Meeting ---
-class ScheduleMeetingInput(BaseModel):
-    """Input schema for scheduling a new meeting."""
-    attendee: str = Field(description="The name of the main person to schedule the meeting with.")
-    start_time: str = Field(description="The start time for the meeting, e.g., '2025-12-02 14:00:00'.")
-    duration_minutes: int = Field(description="The meeting duration in minutes.")
-    title: str = Field(description="A concise, descriptive title for the meeting.")
+        from datetime import datetime, timedelta
+        end_dt = datetime.fromisoformat(start_datetime) + timedelta(seconds=duration_seconds)
+        end_datetime = end_dt.isoformat()
 
-@tool(args_schema=ScheduleMeetingInput)
-def schedule_new_meeting(attendee: str, start_time: str, duration_minutes: int, title: str) -> str:
-    """
-    Schedules a new meeting with the specified attendee, time, duration, and title. 
-    Returns a confirmation message.
-    """
-    # In a real app, this sends an API call to create the calendar event.
-    return f"SUCCESS: Scheduled a {duration_minutes}-minute meeting with **{attendee}** titled '{title}' on **{start_time}**."
-    
+        payload = {
+            "schedules": ["me@outlook.com"],
+            "startTime": {"dateTime": start_datetime, "timeZone": "America/Chicago"},
+            "endTime": {"dateTime": end_datetime, "timeZone": "America/Chicago"},
+            "availabilityViewInterval": 60
+        }
+
+        response = requests.post(
+            f"{GRAPH_URL}/me/calendar/getSchedule",
+            headers=headers,
+            json=payload
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        busy = data.get("value", [{}])[0].get("scheduleItems", [])
+        if busy:
+            return f"Conflict detected at {start_datetime}. Calendar is BUSY."
+        return f"Calendar is FREE at {start_datetime}."
+
+    except Exception as e:
+        return f"Error checking availability: {e}"
+
+
+def schedule_new_meeting(data: ScheduleMeetingInput) -> str:
+    from auth import auth_manager
+
+    try:
+        headers = auth_manager.get_auth_header()
+
+        start_datetime = f"{data.date}T{data.time}"
+        duration_seconds = data.duration_minutes * 60
+
+        from datetime import datetime, timedelta
+        end_dt = datetime.fromisoformat(start_datetime) + timedelta(seconds=duration_seconds)
+        end_datetime = end_dt.isoformat()
+
+        attendees = [{"emailAddress": {"address": a}, "type": "required"} for a in data.attendees]
+
+        payload = {
+            "subject": data.subject,
+            "start": {"dateTime": start_datetime, "timeZone": "America/Chicago"},
+            "end": {"dateTime": end_datetime, "timeZone": "America/Chicago"},
+            "attendees": attendees,
+            "isOnlineMeeting": True,
+            "onlineMeetingProvider": "teamsForBusiness"
+        }
+
+        response = requests.post(f"{GRAPH_URL}/me/events", headers=headers, json=payload)
+        response.raise_for_status()
+        event = response.json()
+
+        return f"Meeting scheduled: {event['subject']} at {event['start']['dateTime']}"
+
+    except Exception as e:
+        return f"Error scheduling meeting: {e}"
+
+
+# Export tools
+tools = [check_calendar_availability, schedule_new_meeting]
