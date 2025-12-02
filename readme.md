@@ -151,5 +151,6 @@ MIT License – free to use and modify.
 
 
 
-Dhiraj Athreya – [GitHub](https://github.com/yourusername)
-Contact: [dhiraj@example.com](mailto:dhiraj@example.com)
+Dhiraj Athreya – (https://github.com/dhirajathreya96)
+Contact: (mailto:dhirajathreya96@gmail.com)
+
