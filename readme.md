@@ -17,6 +17,14 @@ This agent can **check availability** and **schedule meetings** using Microsoft 
 
 ---
 
+## Screen recording
+
+
+
+https://github.com/user-attachments/assets/15032ffb-6c1d-42dc-ab43-68e7d3f368af
+
+
+
 ## Folder Structure
 
 ```
