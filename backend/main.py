@@ -181,7 +181,6 @@ react_agent = graph.compile()
 # -----------------------------
 # FastAPI
 # -----------------------------
-app = FastAPI(title="Calendar ReAct Agent")
 
 class ChatRequest(BaseModel):
     session_id: str
