@@ -3,7 +3,7 @@ import requests
 import uuid
 
 # --- Configuration ---
-BACKEND_URL = "http://127.0.0.1:8000/chat"
+BACKEND_URL = "https://calendar-ai-backend-97cz.onrender.com/chat"
 APP_TITLE = "Intelligent Calendar Assistant 📅"
 
 st.set_page_config(page_title=APP_TITLE)

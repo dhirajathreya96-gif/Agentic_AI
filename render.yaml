@@ -7,9 +7,13 @@ services:
     env: python
     region: oregon
     plan: free
+
     rootDir: backend
+
     buildCommand: "pip install -r requirements.txt"
+
     startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+
     envVars:
       - key: CLIENT_ID
         sync: false
@@ -22,6 +26,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
 
+
   # ============================
   # STREAMLIT FRONTEND SERVICE
   # ============================
@@ -30,9 +35,13 @@ services:
     env: python
     region: oregon
     plan: free
+
     rootDir: frontend
+
     buildCommand: "pip install -r requirements.txt"
+
     startCommand: "streamlit run frontend.py --server.port $PORT --server.address 0.0.0.0"
+
     envVars:
       - key: BACKEND_URL
         value: "https://calendar-ai-backend.onrender.com/chat"

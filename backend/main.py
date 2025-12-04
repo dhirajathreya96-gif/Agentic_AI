@@ -10,6 +10,18 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage
 
+from fastapi import FastAPI
+
+from fastapi import FastAPI
+
+app = FastAPI(title="Calendar ReAct Agent")
+
+@app.get("/")
+def root():
+    return {"status": "Backend is running", "message": "Calendar AI API backend is live!"}
+
+
+
 # Import ONLY the tool functions — NOT the Pydantic models
 from tools import check_calendar_availability, schedule_new_meeting, tools
 
